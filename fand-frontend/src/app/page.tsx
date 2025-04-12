@@ -10,14 +10,15 @@ import { useNotifications } from '@/hooks/useNotifications';
 const SETTINGS_KEY = 'fand_settings';
 
 const defaultExchangeSettings: ExchangeSettings = {
-  binance: true,
-  bybit: true,
-  bitget: true,
-  okx: true,
+  binance: false,
+  bybit: false,
+  bitget: false,
+  mexc: false,
+  okx: false
 };
 
 const defaultNotificationSettings: NotificationSettings = {
-  timeBeforeFunding: [5, 15, 30],
+  timeBeforeFunding: [5],
   minRate: -0.5,
 };
 
@@ -28,6 +29,7 @@ export default function Home() {
   const [exchangeSettings, setExchangeSettings] = useState<ExchangeSettings>(defaultExchangeSettings);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Используем хук уведомлений
   useNotifications(filteredFundings, notificationSettings.timeBeforeFunding);
@@ -114,19 +116,23 @@ export default function Home() {
   const fetchFundings = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching fundings...');
-      const response = await fetch('/api/fundings');
+      const settings = {
+        binance: exchangeSettings.binance || false,
+        bybit: exchangeSettings.bybit || false,
+        bitget: exchangeSettings.bitget || false,
+        mexc: exchangeSettings.mexc || false,
+        okx: exchangeSettings.okx || false
+      };
+      console.log('Fetching fundings with settings:', settings);
+      const response = await fetch(`/api/fundings?exchanges=${JSON.stringify(settings)}`);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch fundings');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Received fundings:', data);
       setFundings(data);
     } catch (error) {
       console.error('Error fetching fundings:', error);
-      toast.error(error instanceof Error ? error.message : 'Ошибка при загрузке данных');
-      setFundings([]);
+      setError('Failed to fetch funding data');
     } finally {
       setIsLoading(false);
     }

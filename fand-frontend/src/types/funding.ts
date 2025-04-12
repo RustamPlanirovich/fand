@@ -10,6 +10,7 @@ export interface ExchangeSettings {
   binance: boolean;
   bybit: boolean;
   bitget: boolean;
+  mexc: boolean;
   okx: boolean;
 }
 

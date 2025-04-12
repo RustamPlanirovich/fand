@@ -91,7 +91,7 @@ export default function FundingList({ fundings, isLoading, onRefresh }: FundingL
                   <h3 className="text-lg font-semibold text-white">{funding.symbol}</h3>
                   <p className="text-sm text-gray-400">{funding.exchange}</p>
                 </div>
-                <span className="text-lg font-bold text-red-500">
+                <span className={`text-lg font-bold ${funding.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {(funding.rate * 100).toFixed(4)}%
                 </span>
               </div>

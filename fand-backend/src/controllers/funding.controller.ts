@@ -7,10 +7,12 @@ export class FundingController {
 
   @Get()
   async getFundings(
-    @Query('exchanges') exchanges: string = '{"binance":true,"bybit":true,"bitget":true,"okx":true}'
+    @Query('exchanges') exchanges: string = '{"binance":false,"bybit":false,"bitget":false,"mexc":false,"okx":false}'
   ) {
     try {
+      console.log('Received exchanges parameter:', exchanges);
       const exchangeSettings = JSON.parse(exchanges);
+      console.log('Parsed exchange settings:', exchangeSettings);
       return await this.exchangeService.getAllFundings(exchangeSettings);
     } catch (error) {
       console.error('Error in funding controller:', error);

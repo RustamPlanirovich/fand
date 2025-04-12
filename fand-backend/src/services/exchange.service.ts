@@ -72,12 +72,12 @@ export class ExchangeService {
         .map((item: any) => {
           try {
             const nextFundingTime = new Date(item.nextFundingTime);
-            console.log('Binance funding time:', {
-              symbol: item.symbol,
-              rawTime: item.nextFundingTime,
-              parsedTime: nextFundingTime.toISOString(),
-              localTime: nextFundingTime.toLocaleString('ru-RU')
-            });
+            // console.log('Binance funding time:', {
+            //   symbol: item.symbol,
+            //   rawTime: item.nextFundingTime,
+            //   parsedTime: nextFundingTime.toISOString(),
+            //   localTime: nextFundingTime.toLocaleString('ru-RU')
+            // });
 
             return {
               symbol: item.symbol,
@@ -119,7 +119,7 @@ export class ExchangeService {
           const rate = parseFloat(item.fundingRate);
           const isValid = !isNaN(rate) && rate !== 0;
           if (!isValid) {
-            console.log('Filtered out Bybit item with invalid rate:', item);
+            //console.log('Filtered out Bybit item with invalid rate:', item);
           }
           return isValid;
         })
@@ -132,12 +132,12 @@ export class ExchangeService {
             }
 
             const fundingTime = new Date(nextFundingTime);
-            console.log('Bybit funding time:', {
-              symbol: item.symbol,
-              rawTime: item.nextFundingTime,
-              parsedTime: fundingTime.toISOString(),
-              localTime: fundingTime.toLocaleString('ru-RU')
-            });
+            // console.log('Bybit funding time:', {
+            //   symbol: item.symbol,
+            //   rawTime: item.nextFundingTime,
+            //   parsedTime: fundingTime.toISOString(),
+            //   localTime: fundingTime.toLocaleString('ru-RU')
+            // });
 
             return {
               symbol: item.symbol,
@@ -216,10 +216,12 @@ export class ExchangeService {
     }
   }
 
-  private async getOkxFundings(): Promise<Funding[]> {
+  async getOkxFundings(): Promise<Funding[]> {
     try {
       console.log('Fetching OKX fundings...');
-      const response = await this.fetchWithTimeout('https://www.okx.com/api/v5/public/funding-rate');
+      const response = await this.fetchWithTimeout('https://www.okx.com/api/v5/public/funding-rate?instId=ALL');
+      
+      console.log('OKX API response:', JSON.stringify(response.data, null, 2));
       
       if (!response.data?.data) {
         console.error('Invalid response format from OKX API:', response.data);
@@ -269,26 +271,117 @@ export class ExchangeService {
     }
   }
 
+  async getMexcFundings(): Promise<Funding[]> {
+    try {
+      console.log('Fetching MEXC fundings...');
+      const response = await this.fetchWithTimeout('https://contract.mexc.com/api/v1/contract/funding_rate');
+      
+      console.log('MEXC API response:', JSON.stringify(response.data, null, 2));
+      
+      if (!response.data?.success || response.data?.code !== 0) {
+        console.error('MEXC API returned unsuccessful response:', response.data);
+        return [];
+      }
+
+      if (!response.data?.data) {
+        console.error('Invalid response format from MEXC API:', response.data);
+        return [];
+      }
+
+      // Сначала обрабатываем все монеты локально
+      const coinsWithHighRate = response.data.data
+        .map((item: any) => {
+          const cleanSymbol = item.symbol.replace('_USDT', '').replace('_USD', '');
+          console.log('Processing MEXC item:', {
+            symbol: cleanSymbol,
+            originalSymbol: item.symbol,
+            rate: item.fundingRate,
+            maxRate: item.maxFundingRate,
+            minRate: item.minFundingRate,
+            collectCycle: item.collectCycle,
+            nextSettleTime: item.nextSettleTime,
+            timestamp: new Date(item.timestamp).toISOString()
+          });
+          return {
+            symbol: cleanSymbol,
+            originalSymbol: item.symbol,
+            rate: parseFloat(item.fundingRate),
+            rawRate: item.fundingRate,
+            maxRate: item.maxFundingRate,
+            minRate: item.minFundingRate,
+            nextSettleTime: item.nextSettleTime,
+            collectCycle: item.collectCycle,
+            timestamp: item.timestamp
+          };
+        })
+        .filter(item => {
+          const isValid = !isNaN(item.rate) && item.rate !== 0;
+          if (!isValid) {
+            console.log('Filtered out MEXC item with invalid rate:', item);
+          }
+          return isValid;
+        })
+        .sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate))
+        .slice(0, 10); // Берем только топ-10 монет по абсолютному значению ставки
+
+      console.log(`Found ${coinsWithHighRate.length} coins with highest funding rates:`, coinsWithHighRate);
+
+      // Формируем результат
+      const result = coinsWithHighRate.map((coin: any) => {
+        try {
+          const nextFundingTime = new Date(parseInt(coin.nextSettleTime));
+          if (isNaN(nextFundingTime.getTime())) {
+            console.log('Invalid MEXC funding time:', coin);
+            return null;
+          }
+
+          console.log('MEXC funding time:', {
+            symbol: coin.symbol,
+            originalSymbol: coin.originalSymbol,
+            rawTime: coin.nextSettleTime,
+            parsedTime: nextFundingTime.toISOString(),
+            localTime: nextFundingTime.toLocaleString('ru-RU'),
+            collectCycle: coin.collectCycle,
+            maxRate: coin.maxRate,
+            minRate: coin.minRate,
+            timestamp: new Date(coin.timestamp).toISOString()
+          });
+
+          return {
+            symbol: coin.symbol,
+            rate: coin.rate,
+            rawRate: coin.rawRate,
+            time: nextFundingTime.toISOString(),
+            exchange: 'MEXC',
+            exchangeUrl: `https://futures.mexc.com/exchange/${coin.originalSymbol}`,
+            collectCycle: coin.collectCycle,
+            maxRate: coin.maxRate,
+            minRate: coin.minRate,
+            timestamp: new Date(coin.timestamp).toISOString()
+          };
+        } catch (error) {
+          console.error('Error processing MEXC funding item:', error);
+          return null;
+        }
+      }).filter((item): item is Funding => item !== null);
+
+      console.log('Final MEXC fundings:', result);
+      return result;
+    } catch (error) {
+      console.error('Error fetching MEXC fundings:', error);
+      return [];
+    }
+  }
+
   async getAllFundings(exchangeSettings: { [key: string]: boolean }): Promise<Funding[]> {
     try {
       console.log('Starting to fetch fundings from enabled exchanges...');
       console.log('Exchange settings:', exchangeSettings);
       
-      // Проверяем, есть ли хотя бы одна выбранная биржа
-      const enabledExchanges = Object.entries(exchangeSettings)
-        .filter(([_, enabled]) => enabled)
-        .map(([exchange]) => exchange);
-
-      if (enabledExchanges.length === 0) {
-        console.log('No exchanges selected for fetching');
-        return [];
-      }
-
-      console.log('Fetching fundings from:', enabledExchanges.join(', '));
-      
       const exchangePromises = [];
 
       if (exchangeSettings.binance) {
+        console.log('Adding Binance to exchange promises');
         exchangePromises.push(
           this.getBinanceFundings().catch(error => {
             console.error('Failed to fetch Binance fundings:', error);
@@ -298,6 +391,7 @@ export class ExchangeService {
       }
 
       if (exchangeSettings.bybit) {
+        console.log('Adding Bybit to exchange promises');
         exchangePromises.push(
           this.getBybitFundings().catch(error => {
             console.error('Failed to fetch Bybit fundings:', error);
@@ -307,6 +401,7 @@ export class ExchangeService {
       }
 
       if (exchangeSettings.bitget) {
+        console.log('Adding Bitget to exchange promises');
         exchangePromises.push(
           this.getBitgetFundings().catch(error => {
             console.error('Failed to fetch Bitget fundings:', error);
@@ -316,6 +411,7 @@ export class ExchangeService {
       }
 
       if (exchangeSettings.okx) {
+        console.log('Adding OKX to exchange promises');
         exchangePromises.push(
           this.getOkxFundings().catch(error => {
             console.error('Failed to fetch OKX fundings:', error);
@@ -323,12 +419,29 @@ export class ExchangeService {
           })
         );
       }
+      console.log('MEXC:', exchangeSettings.mexc);
+      if (exchangeSettings.mexc) {
+        console.log('Adding MEXC to exchange promises');
+        exchangePromises.push(
+          this.getMexcFundings().catch(error => {
+            console.error('Failed to fetch MEXC fundings:', error);
+            return [];
+          })
+        );
+      } else {
+        console.log('MEXC is disabled in settings');
+      }
 
+      console.log('Waiting for all exchange promises to resolve...');
       const results = await Promise.all(exchangePromises);
-      const allFundings = results.flat();
+      console.log('Raw results from exchanges:', results.map((r, i) => ({
+        exchange: ['binance', 'bybit', 'bitget', 'okx', 'mexc'][i],
+        count: r.length,
+        data: r
+      })));
 
-      console.log('Raw funding data from exchanges:');
-      console.log('Total fundings:', allFundings.length);
+      const allFundings = results.flat();
+      console.log('Total fundings after flattening:', allFundings.length);
 
       const validFundings = allFundings
         .filter(funding => {
@@ -346,9 +459,7 @@ export class ExchangeService {
           return b.rate - a.rate;
         });
 
-      console.log('Final processed fundings:', JSON.stringify(validFundings, null, 2));
-      console.log(`Total number of valid fundings: ${validFundings.length}`);
-
+      //console.log('Final processed fundings:', validFundings);
       return validFundings;
     } catch (error) {
       console.error('Error in getAllFundings:', error);
