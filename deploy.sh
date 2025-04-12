@@ -1,9 +1,15 @@
 #!/bin/bash
 
+# Проверка наличия PM2
+if ! command -v pm2 &> /dev/null; then
+    echo "PM2 не установлен. Устанавливаем..."
+    sudo npm install -g pm2
+fi
+
 # Остановка предыдущих процессов
 echo "Stopping previous processes..."
-pm2 stop fand-backend
-pm twice fand-frontend
+pm2 stop fand-backend || true
+pm2 stop fand-frontend || true
 
 # Обновление кода
 echo "Updating code..."
@@ -25,8 +31,9 @@ npm run build
 echo "Starting applications..."
 cd ../fand-backend
 pm2 start dist/main.js --name fand-backend
+
 cd ../fand-frontend
-pm2 start npm --name fand-frontend -- start
+PORT=3010 pm2 start npm --name fand-frontend -- start
 
 # Сохранение конфигурации PM2
 pm2 save

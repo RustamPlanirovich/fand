@@ -9,9 +9,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  server: {
-    port: 3010,
-  },
 };
 
 export default nextConfig;
