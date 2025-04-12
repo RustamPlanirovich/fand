@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     let exchangeSettings;
     try {
       exchangeSettings = JSON.parse(exchangesParam);
-    } catch (e) {
+    } catch {
       return NextResponse.json({ error: 'Invalid exchanges parameter format' }, { status: 400 });
     }
 
