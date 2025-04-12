@@ -11,7 +11,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  await app.listen(3001);
-  console.log('Application is running on: http://localhost:3001');
+  await app.listen(3011);
+  console.log('Application is running on: http://localhost:3011');
 }
 bootstrap();

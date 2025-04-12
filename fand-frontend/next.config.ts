@@ -5,9 +5,12 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
+        destination: 'http://localhost:3011/api/:path*',
       },
     ];
+  },
+  server: {
+    port: 3010,
   },
 };
 
