@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
     console.log('Processing request with settings:', settings);
 
-    const response = await fetch(`http://localhost:3001/fundings?exchanges=${JSON.stringify(settings)}`);
+    const response = await fetch(`http://localhost:3011/fundings?exchanges=${JSON.stringify(settings)}`);
     const data = await response.json();
     
     return NextResponse.json(data);
