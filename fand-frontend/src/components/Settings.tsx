@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { ExchangeSettings, NotificationSettings } from '@/types/funding';
 import { Switch } from '@headlessui/react';
 import toast from 'react-hot-toast';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 interface SettingsProps {
   exchangeSettings: ExchangeSettings;
@@ -9,14 +11,58 @@ interface SettingsProps {
   onNotificationSettingsChange: (settings: NotificationSettings) => void;
 }
 
+const SETTINGS_KEY = 'fand_settings';
+
 export default function Settings({
   exchangeSettings,
   notificationSettings,
   onExchangeSettingsChange,
   onNotificationSettingsChange,
 }: SettingsProps) {
+  const [isTimeCollapsed, setIsTimeCollapsed] = useState(false);
+  const [isRateCollapsed, setIsRateCollapsed] = useState(false);
   const notificationTimes = [5, 15, 30, 60, 120, 240, 480]; // в минутах
   const minRates = [0.1, 0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0,-0.1, -0.2, -0.5, -1.0, -1.5, -2.0, -2.5, -3.0]; // в процентах
+
+  // Загрузка сохраненных настроек сворачивания
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(SETTINGS_KEY);
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.collapseSettings) {
+          setIsTimeCollapsed(parsed.collapseSettings.isTimeCollapsed || false);
+          setIsRateCollapsed(parsed.collapseSettings.isRateCollapsed || false);
+        }
+      } catch (error) {
+        console.error('Error parsing saved collapse settings:', error);
+      }
+    }
+  }, []);
+
+  // Сохранение настроек сворачивания
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(SETTINGS_KEY);
+    let settings = {};
+    
+    if (savedSettings) {
+      try {
+        settings = JSON.parse(savedSettings);
+      } catch (error) {
+        console.error('Error parsing saved settings:', error);
+      }
+    }
+
+    settings = {
+      ...settings,
+      collapseSettings: {
+        isTimeCollapsed,
+        isRateCollapsed,
+      },
+    };
+
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [isTimeCollapsed, isRateCollapsed]);
 
   const toggleExchange = (exchange: keyof ExchangeSettings) => {
     onExchangeSettingsChange({
@@ -123,45 +169,73 @@ export default function Settings({
           <h3 className="text-lg font-medium text-white mb-4">Уведомления</h3>
           <div className="space-y-6">
             <div>
-              <h4 className="text-sm font-medium text-gray-300 mb-2">Время до фандинга</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {notificationTimes.map((time) => (
-                  <button
-                    key={time}
-                    onClick={() => toggleNotificationTime(time)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      notificationSettings.timeBeforeFunding.includes(time)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    {time < 60
-                      ? `${time} мин`
-                      : time === 60
-                      ? '1 час'
-                      : `${time / 60} часа`}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-300">Время до фандинга</h4>
+                <button
+                  onClick={() => setIsTimeCollapsed(!isTimeCollapsed)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  {isTimeCollapsed ? (
+                    <ChevronDownIcon className="h-5 w-5" />
+                  ) : (
+                    <ChevronUpIcon className="h-5 w-5" />
+                  )}
+                </button>
               </div>
+              {!isTimeCollapsed && (
+                <div className="grid grid-cols-2 gap-4">
+                  {notificationTimes.map((time) => (
+                    <button
+                      key={time}
+                      onClick={() => toggleNotificationTime(time)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        notificationSettings.timeBeforeFunding.includes(time)
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {time < 60
+                        ? `${time} мин`
+                        : time === 60
+                        ? '1 час'
+                        : `${time / 60} часа`}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-gray-300 mb-2">Минимальный процент</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {minRates.map((rate) => (
-                  <button
-                    key={rate}
-                    onClick={() => setMinRate(rate)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      notificationSettings.minRate === rate
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    {rate}%
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-300">Минимальный процент</h4>
+                <button
+                  onClick={() => setIsRateCollapsed(!isRateCollapsed)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  {isRateCollapsed ? (
+                    <ChevronDownIcon className="h-5 w-5" />
+                  ) : (
+                    <ChevronUpIcon className="h-5 w-5" />
+                  )}
+                </button>
               </div>
+              {!isRateCollapsed && (
+                <div className="grid grid-cols-2 gap-4">
+                  {minRates.map((rate) => (
+                    <button
+                      key={rate}
+                      onClick={() => setMinRate(rate)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        notificationSettings.minRate === rate
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="pt-4">
