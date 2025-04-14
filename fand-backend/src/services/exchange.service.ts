@@ -373,97 +373,100 @@ export class ExchangeService {
     }
   }
 
-  async getAllFundings(exchangeSettings: { [key: string]: boolean }): Promise<Funding[]> {
+  async getAllFundings(exchangeSettings: { [key: string]: boolean }, isPriority: boolean = false): Promise<Funding[]> {
     try {
       console.log('Starting to fetch fundings from enabled exchanges...');
       console.log('Exchange settings:', exchangeSettings);
+      console.log('Is priority request:', isPriority);
       
       const exchangePromises = [];
+      const enabledExchanges = Object.entries(exchangeSettings)
+        .filter(([_, enabled]) => enabled)
+        .map(([exchange]) => exchange);
 
-      if (exchangeSettings.binance) {
-        console.log('Adding Binance to exchange promises');
-        exchangePromises.push(
-          this.getBinanceFundings().catch(error => {
-            console.error('Failed to fetch Binance fundings:', error);
-            return [];
-          })
-        );
-      }
+      // If this is a priority request and there are enabled exchanges,
+      // we'll process them first and then handle the rest in background
+      if (isPriority && enabledExchanges.length > 0) {
+        console.log('Processing priority exchanges:', enabledExchanges);
+        
+        // Process enabled exchanges first
+        for (const exchange of enabledExchanges) {
+          const promise = this.getExchangeFundings(exchange);
+          exchangePromises.push(promise);
+        }
 
-      if (exchangeSettings.bybit) {
-        console.log('Adding Bybit to exchange promises');
-        exchangePromises.push(
-          this.getBybitFundings().catch(error => {
-            console.error('Failed to fetch Bybit fundings:', error);
-            return [];
-          })
-        );
-      }
+        // Wait for priority exchanges to complete
+        const priorityResults = await Promise.all(exchangePromises);
+        const priorityFundings = priorityResults.flat();
 
-      if (exchangeSettings.bitget) {
-        console.log('Adding Bitget to exchange promises');
-        exchangePromises.push(
-          this.getBitgetFundings().catch(error => {
-            console.error('Failed to fetch Bitget fundings:', error);
-            return [];
-          })
-        );
-      }
+        // Start background processing of other exchanges
+        this.processBackgroundExchanges(exchangeSettings, enabledExchanges);
 
-      if (exchangeSettings.okx) {
-        console.log('Adding OKX to exchange promises');
-        exchangePromises.push(
-          this.getOkxFundings().catch(error => {
-            console.error('Failed to fetch OKX fundings:', error);
-            return [];
-          })
-        );
-      }
-      console.log('MEXC:', exchangeSettings.mexc);
-      if (exchangeSettings.mexc) {
-        console.log('Adding MEXC to exchange promises');
-        exchangePromises.push(
-          this.getMexcFundings().catch(error => {
-            console.error('Failed to fetch MEXC fundings:', error);
-            return [];
-          })
-        );
+        return priorityFundings;
       } else {
-        console.log('MEXC is disabled in settings');
-      }
-
-      console.log('Waiting for all exchange promises to resolve...');
-      const results = await Promise.all(exchangePromises);
-      console.log('Raw results from exchanges:', results.map((r, i) => ({
-        exchange: ['binance', 'bybit', 'bitget', 'okx', 'mexc'][i],
-        count: r.length,
-        data: r
-      })));
-
-      const allFundings = results.flat();
-      console.log('Total fundings after flattening:', allFundings.length);
-
-      const validFundings = allFundings
-        .filter(funding => {
-          const fundingTime = new Date(funding.time);
-          const isValid = !isNaN(fundingTime.getTime());
-          if (!isValid) {
-            console.warn('Invalid funding time found:', funding);
+        // If no priority exchanges or not a priority request,
+        // process all enabled exchanges
+        for (const [exchange, enabled] of Object.entries(exchangeSettings)) {
+          if (enabled) {
+            const promise = this.getExchangeFundings(exchange);
+            exchangePromises.push(promise);
           }
-          return isValid;
-        })
-        .sort((a, b) => {
-          const timeA = new Date(a.time).getTime();
-          const timeB = new Date(b.time).getTime();
-          if (timeA !== timeB) return timeA - timeB;
-          return b.rate - a.rate;
-        });
+        }
 
-      //console.log('Final processed fundings:', validFundings);
-      return validFundings;
+        const results = await Promise.all(exchangePromises);
+        return results.flat();
+      }
     } catch (error) {
       console.error('Error in getAllFundings:', error);
       throw error;
+    }
+  }
+
+  private async getExchangeFundings(exchange: string): Promise<Funding[]> {
+    switch (exchange) {
+      case 'binance':
+        return this.getBinanceFundings();
+      case 'bybit':
+        return this.getBybitFundings();
+      case 'bitget':
+        return this.getBitgetFundings();
+      case 'okx':
+        return this.getOkxFundings();
+      case 'mexc':
+        return this.getMexcFundings();
+      default:
+        console.warn(`Unknown exchange: ${exchange}`);
+        return [];
+    }
+  }
+
+  private async processBackgroundExchanges(
+    exchangeSettings: { [key: string]: boolean },
+    priorityExchanges: string[]
+  ): Promise<void> {
+    try {
+      const backgroundExchanges = Object.entries(exchangeSettings)
+        .filter(([exchange, enabled]) => enabled && !priorityExchanges.includes(exchange))
+        .map(([exchange]) => exchange);
+
+      if (backgroundExchanges.length === 0) {
+        return;
+      }
+
+      console.log('Processing background exchanges:', backgroundExchanges);
+
+      // Process background exchanges without waiting for results
+      for (const exchange of backgroundExchanges) {
+        this.getExchangeFundings(exchange)
+          .then(results => {
+            console.log(`Background processing completed for ${exchange}:`, results.length, 'items');
+          })
+          .catch(error => {
+            console.error(`Background processing failed for ${exchange}:`, error);
+          });
+      }
+    } catch (error) {
+      console.error('Error in processBackgroundExchanges:', error);
     }
   }
 } 

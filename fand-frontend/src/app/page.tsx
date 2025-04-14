@@ -30,6 +30,7 @@ export default function Home() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
 
   // Используем хук уведомлений
   useNotifications(filteredFundings, notificationSettings.timeBeforeFunding);
@@ -95,27 +96,43 @@ export default function Home() {
     if (isInitialized) {
       let isMounted = true;
       
-      const fetchData = async () => {
+      const fetchData = async (isPriority: boolean = false) => {
         if (!isMounted) return;
-        await fetchFundings();
+        
+        // Проверяем, нужно ли обновлять данные
+        const now = Date.now();
+        const shouldUpdate = !lastUpdateTime || (now - lastUpdateTime) >= 60 * 60 * 1000; // 1 час
+        
+        if (shouldUpdate) {
+          await fetchFundings(isPriority);
+          setLastUpdateTime(now);
+        }
       };
 
       // Первоначальная загрузка
-      fetchData();
+      fetchData(true);
       
-      // Обновляем каждые 5 минут
-      const interval = setInterval(fetchData, 60 * 60 * 1000);
+      // Проверяем необходимость обновления каждую минуту
+      const interval = setInterval(() => {
+        const now = Date.now();
+        if (lastUpdateTime && (now - lastUpdateTime) >= 60 * 60 * 1000) {
+          fetchData(false);
+        }
+      }, 60 * 1000); // Каждую минуту
 
       return () => {
         isMounted = false;
         clearInterval(interval);
       };
     }
-  }, [isInitialized]);
+  }, [isInitialized, lastUpdateTime]);
 
-  const fetchFundings = async () => {
+  const fetchFundings = async (isPriority: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (isPriority) {
+        setIsLoading(true);
+      }
+
       const settings = {
         binance: exchangeSettings.binance || false,
         bybit: exchangeSettings.bybit || false,
@@ -123,18 +140,44 @@ export default function Home() {
         mexc: exchangeSettings.mexc || false,
         okx: exchangeSettings.okx || false
       };
-      console.log('Fetching fundings with settings:', settings);
-      const response = await fetch(`/api/fundings?exchanges=${JSON.stringify(settings)}`);
+
+      console.log('Fetching fundings with settings:', settings, 'priority:', isPriority);
+      const response = await fetch(`/api/fundings?exchanges=${JSON.stringify(settings)}&priority=${isPriority}`);
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
       const data = await response.json();
-      setFundings(data);
+      
+      if (isPriority) {
+        setFundings(data);
+      } else {
+        // For background updates, merge with existing data
+        setFundings(prevFundings => {
+          const newFundings = [...prevFundings];
+          data.forEach((newFunding: Funding) => {
+            const existingIndex = newFundings.findIndex(
+              f => f.symbol === newFunding.symbol && f.exchange === newFunding.exchange
+            );
+            if (existingIndex >= 0) {
+              newFundings[existingIndex] = newFunding;
+            } else {
+              newFundings.push(newFunding);
+            }
+          });
+          return newFundings;
+        });
+      }
     } catch (error) {
       console.error('Error fetching fundings:', error);
-      setError('Failed to fetch funding data');
+      if (isPriority) {
+        setError('Failed to fetch funding data');
+      }
     } finally {
-      setIsLoading(false);
+      if (isPriority) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -151,10 +194,19 @@ export default function Home() {
 
   const handleExchangeSettingsChange = (newSettings: ExchangeSettings) => {
     setExchangeSettings(newSettings);
+    // При изменении настроек не обновляем данные, просто фильтруем существующие
+    setFilteredFundings(prevFundings => 
+      prevFundings.filter(funding => newSettings[funding.exchange.toLowerCase() as keyof ExchangeSettings])
+    );
   };
 
   const handleNotificationSettingsChange = (newSettings: NotificationSettings) => {
     setNotificationSettings(newSettings);
+  };
+
+  const handleRefresh = () => {
+    fetchFundings(true);
+    setLastUpdateTime(Date.now());
   };
 
   return (
@@ -167,7 +219,7 @@ export default function Home() {
             <FundingList 
               fundings={filteredFundings} 
               isLoading={isLoading} 
-              onRefresh={fetchFundings} 
+              onRefresh={handleRefresh} 
             />
           </div>
         </div>

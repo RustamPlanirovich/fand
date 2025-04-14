@@ -4,6 +4,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const exchangesParam = searchParams.get('exchanges');
+    const isPriority = searchParams.get('priority') === 'true';
     
     if (!exchangesParam) {
       return NextResponse.json({ error: 'Missing exchanges parameter' }, { status: 400 });
@@ -25,9 +26,9 @@ export async function GET(request: Request) {
       okx: exchangeSettings.okx || false
     };
 
-    console.log('Processing request with settings:', settings);
+    console.log('Processing request with settings:', settings, 'priority:', isPriority);
 
-    const response = await fetch(`http://localhost:3011/fundings?exchanges=${JSON.stringify(settings)}`);
+    const response = await fetch(`http://localhost:3011/fundings?exchanges=${JSON.stringify(settings)}&priority=${isPriority}`);
     const data = await response.json();
     
     return NextResponse.json(data);
