@@ -4,6 +4,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ClipboardDocumentIcon, ArrowTopRightOnSquareIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import BitgetCard from './BitgetCard';
 
 interface FundingListProps {
   fundings: Funding[];
@@ -81,35 +82,47 @@ export default function FundingList({ fundings, isLoading, onRefresh }: FundingL
         </div>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {fundings.map((funding, index) => (
-            <div
-              key={`${funding.exchange}-${funding.symbol}-${index}`}
-              className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 min-w-0 mr-2">
-                  <h3 className="text-lg font-semibold text-white truncate">{funding.symbol}</h3>
-                  <p className="text-sm text-gray-400">{funding.exchange}</p>
+          {fundings.map((funding, index) => {
+            if (funding.exchange.toLowerCase() === 'bitget' && funding.additionalData) {
+              return (
+                <BitgetCard
+                  key={`${funding.exchange}-${funding.symbol}-${index}`}
+                  funding={funding}
+                  additionalData={funding.additionalData}
+                />
+              );
+            }
+
+            return (
+              <div
+                key={`${funding.exchange}-${funding.symbol}-${index}`}
+                className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1 min-w-0 mr-2">
+                    <h3 className="text-lg font-semibold text-white truncate">{funding.symbol}</h3>
+                    <p className="text-sm text-gray-400">{funding.exchange}</p>
+                  </div>
+                  <span className={`text-lg font-bold whitespace-nowrap ${funding.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {(funding.rate * 100).toFixed(4)}%
+                  </span>
                 </div>
-                <span className={`text-lg font-bold whitespace-nowrap ${funding.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {(funding.rate * 100).toFixed(4)}%
-                </span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400 truncate">
+                    {formatTime(funding.time)}
+                  </span>
+                  <a
+                    href={funding.exchangeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 text-sm ml-2 whitespace-nowrap"
+                  >
+                    Открыть
+                  </a>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400 truncate">
-                  {formatTime(funding.time)}
-                </span>
-                <a
-                  href={funding.exchangeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 text-sm ml-2 whitespace-nowrap"
-                >
-                  Открыть
-                </a>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

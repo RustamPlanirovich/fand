@@ -173,7 +173,24 @@ export class ExchangeService {
         .map((item: any) => ({
           symbol: item.symbol,
           rate: parseFloat(item.fundingRate),
-          rawRate: item.fundingRate
+          rawRate: item.fundingRate,
+          additionalData: {
+            last: item.last,
+            bestAsk: item.bestAsk,
+            bestBid: item.bestBid,
+            bidSz: item.bidSz,
+            askSz: item.askSz,
+            high24h: item.high24h,
+            low24h: item.low24h,
+            priceChangePercent: item.priceChangePercent,
+            baseVolume: item.baseVolume,
+            quoteVolume: item.quoteVolume,
+            usdtVolume: item.usdtVolume,
+            openUtc: item.openUtc,
+            chgUtc: item.chgUtc,
+            indexPrice: item.indexPrice,
+            holdingAmount: item.holdingAmount
+          }
         }))
         .filter(item => !isNaN(item.rate) && item.rate !== 0)
         .sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate))
@@ -201,7 +218,8 @@ export class ExchangeService {
             rate: coin.rate,
             time: fundingTime.toISOString(),
             exchange: 'Bitget',
-            exchangeUrl: `https://www.bitget.com/ru/futures/usdt/${coin.symbol.replace('_UMCBL', '')}`
+            exchangeUrl: `https://www.bitget.com/ru/futures/usdt/${coin.symbol.replace('_UMCBL', '')}`,
+            additionalData: coin.additionalData
           });
         } catch (error) {
           console.error(`Error fetching funding time for ${coin.symbol}:`, error);
