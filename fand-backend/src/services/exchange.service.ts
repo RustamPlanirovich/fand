@@ -384,33 +384,26 @@ export class ExchangeService {
         .filter(([_, enabled]) => enabled)
         .map(([exchange]) => exchange);
 
-      // If this is a priority request and there are enabled exchanges,
-      // we'll process them first and then handle the rest in background
-      if (isPriority && enabledExchanges.length > 0) {
+      // Если это приоритетный запрос, обрабатываем только выбранные биржи
+      if (isPriority) {
         console.log('Processing priority exchanges:', enabledExchanges);
         
-        // Process enabled exchanges first
+        // Обрабатываем только выбранные биржи
         for (const exchange of enabledExchanges) {
           const promise = this.getExchangeFundings(exchange);
           exchangePromises.push(promise);
         }
 
-        // Wait for priority exchanges to complete
+        // Ждем завершения только приоритетных запросов
         const priorityResults = await Promise.all(exchangePromises);
-        const priorityFundings = priorityResults.flat();
-
-        // Start background processing of other exchanges
-        this.processBackgroundExchanges(exchangeSettings, enabledExchanges);
-
-        return priorityFundings;
+        return priorityResults.flat();
       } else {
-        // If no priority exchanges or not a priority request,
-        // process all enabled exchanges
-        for (const [exchange, enabled] of Object.entries(exchangeSettings)) {
-          if (enabled) {
-            const promise = this.getExchangeFundings(exchange);
-            exchangePromises.push(promise);
-          }
+        // Если это фоновый запрос, обрабатываем все включенные биржи
+        console.log('Processing background exchanges:', enabledExchanges);
+        
+        for (const exchange of enabledExchanges) {
+          const promise = this.getExchangeFundings(exchange);
+          exchangePromises.push(promise);
         }
 
         const results = await Promise.all(exchangePromises);
@@ -423,50 +416,25 @@ export class ExchangeService {
   }
 
   private async getExchangeFundings(exchange: string): Promise<Funding[]> {
-    switch (exchange) {
-      case 'binance':
-        return this.getBinanceFundings();
-      case 'bybit':
-        return this.getBybitFundings();
-      case 'bitget':
-        return this.getBitgetFundings();
-      case 'okx':
-        return this.getOkxFundings();
-      case 'mexc':
-        return this.getMexcFundings();
-      default:
-        console.warn(`Unknown exchange: ${exchange}`);
-        return [];
-    }
-  }
-
-  private async processBackgroundExchanges(
-    exchangeSettings: { [key: string]: boolean },
-    priorityExchanges: string[]
-  ): Promise<void> {
     try {
-      const backgroundExchanges = Object.entries(exchangeSettings)
-        .filter(([exchange, enabled]) => enabled && !priorityExchanges.includes(exchange))
-        .map(([exchange]) => exchange);
-
-      if (backgroundExchanges.length === 0) {
-        return;
-      }
-
-      console.log('Processing background exchanges:', backgroundExchanges);
-
-      // Process background exchanges without waiting for results
-      for (const exchange of backgroundExchanges) {
-        this.getExchangeFundings(exchange)
-          .then(results => {
-            console.log(`Background processing completed for ${exchange}:`, results.length, 'items');
-          })
-          .catch(error => {
-            console.error(`Background processing failed for ${exchange}:`, error);
-          });
+      switch (exchange) {
+        case 'binance':
+          return this.getBinanceFundings();
+        case 'bybit':
+          return this.getBybitFundings();
+        case 'bitget':
+          return this.getBitgetFundings();
+        case 'okx':
+          return this.getOkxFundings();
+        case 'mexc':
+          return this.getMexcFundings();
+        default:
+          console.warn(`Unknown exchange: ${exchange}`);
+          return [];
       }
     } catch (error) {
-      console.error('Error in processBackgroundExchanges:', error);
+      console.error(`Error fetching data for ${exchange}:`, error);
+      return [];
     }
   }
 } 

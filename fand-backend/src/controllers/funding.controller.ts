@@ -14,6 +14,19 @@ export class FundingController {
       console.log('Received exchanges parameter:', exchanges);
       const exchangeSettings = JSON.parse(exchanges);
       console.log('Parsed exchange settings:', exchangeSettings);
+      console.log('Is priority request:', priority === 'true');
+      
+      // Если это приоритетный запрос, обрабатываем только выбранные биржи
+      if (priority === 'true') {
+        const enabledExchanges = Object.entries(exchangeSettings)
+          .filter(([_, enabled]) => enabled)
+          .map(([exchange]) => exchange);
+          
+        if (enabledExchanges.length === 0) {
+          return [];
+        }
+      }
+      
       return await this.exchangeService.getAllFundings(exchangeSettings, priority === 'true');
     } catch (error) {
       console.error('Error in funding controller:', error);

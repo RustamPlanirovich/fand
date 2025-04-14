@@ -31,6 +31,7 @@ export default function Home() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
+  const [loadingExchanges, setLoadingExchanges] = useState<Set<string>>(new Set());
 
   // Используем хук уведомлений
   useNotifications(filteredFundings, notificationSettings.timeBeforeFunding);
@@ -192,9 +193,55 @@ export default function Home() {
     }
   }, [exchangeSettings, notificationSettings, isInitialized]);
 
-  const handleExchangeSettingsChange = (newSettings: ExchangeSettings) => {
+  const handleExchangeSettingsChange = async (newSettings: ExchangeSettings) => {
     setExchangeSettings(newSettings);
-    // При изменении настроек не обновляем данные, просто фильтруем существующие
+    
+    // Проверяем, какие биржи были выбраны
+    const newlySelectedExchanges = Object.entries(newSettings)
+      .filter(([exchange, enabled]) => enabled && !exchangeSettings[exchange as keyof ExchangeSettings])
+      .map(([exchange]) => exchange);
+
+    // Если есть новые выбранные биржи, проверяем наличие данных
+    if (newlySelectedExchanges.length > 0) {
+      const existingExchanges = new Set(fundings.map(f => f.exchange.toLowerCase()));
+      const exchangesToLoad = newlySelectedExchanges.filter(exchange => !existingExchanges.has(exchange));
+
+      if (exchangesToLoad.length > 0) {
+        // Загружаем данные для новых бирж
+        const settings = {
+          binance: exchangesToLoad.includes('binance'),
+          bybit: exchangesToLoad.includes('bybit'),
+          bitget: exchangesToLoad.includes('bitget'),
+          mexc: exchangesToLoad.includes('mexc'),
+          okx: exchangesToLoad.includes('okx')
+        };
+
+        try {
+          const response = await fetch(`/api/fundings?exchanges=${JSON.stringify(settings)}&priority=true`);
+          if (response.ok) {
+            const newData = await response.json();
+            setFundings(prevFundings => {
+              const updatedFundings = [...prevFundings];
+              newData.forEach((newFunding: Funding) => {
+                const existingIndex = updatedFundings.findIndex(
+                  f => f.symbol === newFunding.symbol && f.exchange === newFunding.exchange
+                );
+                if (existingIndex >= 0) {
+                  updatedFundings[existingIndex] = newFunding;
+                } else {
+                  updatedFundings.push(newFunding);
+                }
+              });
+              return updatedFundings;
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching data for newly selected exchanges:', error);
+        }
+      }
+    }
+
+    // Фильтруем данные по новым настройкам
     setFilteredFundings(prevFundings => 
       prevFundings.filter(funding => newSettings[funding.exchange.toLowerCase() as keyof ExchangeSettings])
     );
