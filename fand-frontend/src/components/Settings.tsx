@@ -21,7 +21,20 @@ export default function Settings({
 }: SettingsProps) {
   const [isTimeCollapsed, setIsTimeCollapsed] = useState(false);
   const [isRateCollapsed, setIsRateCollapsed] = useState(false);
-  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(false);
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(() => {
+    // Загружаем состояние из localStorage при инициализации
+    const savedSettings = localStorage.getItem(SETTINGS_KEY);
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        return parsed.isSettingsCollapsed || false;
+      } catch (error) {
+        console.error('Error parsing saved settings:', error);
+        return false;
+      }
+    }
+    return false;
+  });
   const notificationTimes = [5, 15, 30, 60, 120, 240, 480]; // в минутах
   const minRates = [0.1, 0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0,-0.1, -0.2, -0.5, -1.0, -1.5, -2.0, -2.5, -3.0]; // в процентах
 
@@ -56,6 +69,7 @@ export default function Settings({
 
     settings = {
       ...settings,
+      isSettingsCollapsed,
       collapseSettings: {
         isTimeCollapsed,
         isRateCollapsed,
@@ -63,7 +77,7 @@ export default function Settings({
     };
 
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  }, [isTimeCollapsed, isRateCollapsed]);
+  }, [isSettingsCollapsed, isTimeCollapsed, isRateCollapsed]);
 
   const toggleExchange = (exchange: keyof ExchangeSettings) => {
     onExchangeSettingsChange({
