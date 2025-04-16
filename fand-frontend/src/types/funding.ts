@@ -21,6 +21,7 @@ export interface Funding {
     indexPrice: string;
     holdingAmount: string;
   };
+  isInWatchlist?: boolean;
 }
 
 export interface ExchangeSettings {

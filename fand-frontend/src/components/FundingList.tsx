@@ -1,10 +1,13 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Funding } from '@/types/funding';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ClipboardDocumentIcon, ArrowTopRightOnSquareIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
-import BitgetCard from './BitgetCard';
+import { BitgetCard } from './BitgetCard';
+import { WatchlistButton } from './WatchlistButton';
 
 interface FundingListProps {
   fundings: Funding[];
@@ -87,8 +90,10 @@ export default function FundingList({ fundings, isLoading, onRefresh }: FundingL
               return (
                 <BitgetCard
                   key={`${funding.exchange}-${funding.symbol}-${index}`}
-                  funding={funding}
-                  additionalData={funding.additionalData}
+                  data={{
+                    ...funding,
+                    additionalData: funding.additionalData
+                  }}
                 />
               );
             }
@@ -103,9 +108,12 @@ export default function FundingList({ fundings, isLoading, onRefresh }: FundingL
                     <h3 className="text-lg font-semibold text-white truncate">{funding.symbol}</h3>
                     <p className="text-sm text-gray-400">{funding.exchange}</p>
                   </div>
-                  <span className={`text-lg font-bold whitespace-nowrap ${funding.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {(funding.rate * 100).toFixed(4)}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-bold whitespace-nowrap ${funding.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {(funding.rate * 100).toFixed(4)}%
+                    </span>
+                    <WatchlistButton item={{ symbol: funding.symbol, exchange: funding.exchange }} />
+                  </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400 truncate">

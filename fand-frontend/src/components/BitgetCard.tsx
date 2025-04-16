@@ -1,43 +1,30 @@
+'use client';
+
 import React, { useState } from 'react';
 import { Funding } from '@/types/funding';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ChevronDownIcon, ChevronUpIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
+import { WatchlistButton } from './WatchlistButton';
+import { Bitget } from '@/types/bitget';
 
 interface BitgetCardProps {
-  funding: Funding;
-  additionalData: {
-    last: string;
-    bestAsk: string;
-    bestBid: string;
-    bidSz: string;
-    askSz: string;
-    high24h: string;
-    low24h: string;
-    priceChangePercent: string;
-    baseVolume: string;
-    quoteVolume: string;
-    usdtVolume: string;
-    openUtc: string;
-    chgUtc: string;
-    indexPrice: string;
-    holdingAmount: string;
-  };
+  data: Bitget;
 }
 
-export default function BitgetCard({ funding, additionalData }: BitgetCardProps) {
+export function BitgetCard({ data }: BitgetCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
 
   // Функция для определения активности и ликвидности
   const getActivityScore = () => {
-    const volume = parseFloat(additionalData.usdtVolume);
-    const holdingAmount = parseFloat(additionalData.holdingAmount);
-    const bidSize = parseFloat(additionalData.bidSz);
-    const askSize = parseFloat(additionalData.askSz);
-    const spread = Math.abs(parseFloat(additionalData.bestAsk) - parseFloat(additionalData.bestBid));
-    const price = parseFloat(additionalData.last);
+    const volume = parseFloat(data.additionalData.usdtVolume);
+    const holdingAmount = parseFloat(data.additionalData.holdingAmount);
+    const bidSize = parseFloat(data.additionalData.bidSz);
+    const askSize = parseFloat(data.additionalData.askSz);
+    const spread = Math.abs(parseFloat(data.additionalData.bestAsk) - parseFloat(data.additionalData.bestBid));
+    const price = parseFloat(data.additionalData.last);
 
     // Нормализуем значения
     const normalizedVolume = Math.min(volume / 1000000, 1); // Нормализуем объем до 1M USDT
@@ -104,21 +91,24 @@ export default function BitgetCard({ funding, additionalData }: BitgetCardProps)
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0 mr-2">
-          <h3 className="text-lg font-semibold text-white truncate">{funding.symbol}</h3>
-          <p className="text-sm text-gray-400">{funding.exchange}</p>
+          <h3 className="text-lg font-semibold text-white truncate">{data.symbol}</h3>
+          <p className="text-sm text-gray-400">{data.exchange}</p>
         </div>
-        <span className={`text-lg font-bold whitespace-nowrap ${funding.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
-          {(funding.rate * 100).toFixed(4)}%
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-lg font-bold whitespace-nowrap ${data.rate < 0 ? 'text-green-500' : 'text-red-500'}`}>
+            {(data.rate * 100).toFixed(4)}%
+          </span>
+          <WatchlistButton item={data} />
+        </div>
       </div>
       
       <div className="flex justify-between items-center mb-2">
         <span className="text-sm text-gray-400 truncate">
-          {formatTime(funding.time)}
+          {formatTime(data.time)}
         </span>
         <div className="flex items-center gap-2">
           <a
-            href={funding.exchangeUrl}
+            href={data.exchangeUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-400 hover:text-blue-300 text-sm"
@@ -140,7 +130,7 @@ export default function BitgetCard({ funding, additionalData }: BitgetCardProps)
 
       {isExpanded && (
         <div className="mt-4 space-y-2 text-sm">
-          {Object.entries(additionalData).map(([key, value]) => (
+          {Object.entries(data.additionalData).map(([key, value]) => (
             <div key={key} className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 <span className="text-gray-400">{key}:</span>

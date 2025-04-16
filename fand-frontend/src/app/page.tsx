@@ -6,6 +6,10 @@ import FundingList from '@/components/FundingList';
 import Settings from '@/components/Settings';
 import { Funding, ExchangeSettings, NotificationSettings } from '@/types/funding';
 import { useNotifications } from '@/hooks/useNotifications';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { useWatchlist } from '@/hooks/useWatchlist';
 
 const SETTINGS_KEY = 'fand_settings';
 
